@@ -1,0 +1,12 @@
+[package]
+name = "rscan"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.71"
+image = "0.24.6"
+indicatif = "0.17.3"
+printpdf = "0.5.3"
+requestty = "0.5.0"
+sane-scan = "0.1.2"
