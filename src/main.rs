@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use clap::{Parser, ValueEnum};
 use image::EncodableLayout;
 use indicatif::ProgressBar;
 use printpdf::{ColorBits, ColorSpace, Image, ImageTransform, ImageXObject, Mm, PdfDocument, Px};
@@ -9,13 +10,38 @@ use std::{fs, io::Write, time::Duration};
 
 mod sane;
 
+#[derive(Clone, ValueEnum)]
+enum DeviceMode {
+    /// Only use local devices
+    Local,
+    /// Use local and remote devices
+    Remote,
+}
+
+#[derive(Parser)]
+#[command(about)]
+struct Args {
+    /// Output filename
+    #[arg(short, long)]
+    output: Option<String>,
+    /// Use local devices only or also remote ones
+    #[arg(value_enum, short, long, default_value_t = DeviceMode::Local)]
+    device_mode: DeviceMode,
+}
+
 fn main() -> Result<()> {
+    let args = Args::try_parse()?;
+
     let sane = Sane::init_1_0()?;
 
     let loading_devices = ProgressBar::new_spinner();
     loading_devices.enable_steady_tick(Duration::from_millis(120));
     loading_devices.set_message("Loading available devices");
-    let devices = sane.get_all_devices()?;
+    let local_only = match args.device_mode {
+        DeviceMode::Local => true,
+        DeviceMode::Remote => false,
+    };
+    let devices = sane.get_all_devices(local_only)?;
     loading_devices.finish();
 
     let device_question = Question::select("device")
@@ -39,10 +65,13 @@ fn main() -> Result<()> {
     let filename_question = Question::input("filename")
         .message("Enter the output filename")
         .build();
-    let filename = match requestty::prompt_one(filename_question)? {
-        Answer::String(value) => Ok(value),
-        _ => Err(anyhow!("expected a String from prompt")),
-    }?;
+    let filename = match args.output {
+        Some(value) => value,
+        None => match requestty::prompt_one(filename_question)? {
+            Answer::String(value) => Ok(value),
+            _ => Err(anyhow!("expected a String from prompt")),
+        }?,
+    };
 
     let mut images = Vec::new();
     loop {

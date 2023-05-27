@@ -5,7 +5,7 @@ use image::{Luma, Rgb};
 use sane_scan::{sys, Device, Frame, Sane, DeviceHandle};
 
 pub(crate) trait GetAllDevices {
-    fn get_all_devices(&self) -> Result<Vec<Device>, sane_scan::Error>;
+    fn get_all_devices(&self, local_only: bool) -> Result<Vec<Device>, sane_scan::Error>;
 }
 
 fn cstring_from_ptr(ptr: *const std::os::raw::c_char) -> CString {
@@ -16,10 +16,15 @@ fn cstring_from_ptr(ptr: *const std::os::raw::c_char) -> CString {
 }
 
 impl GetAllDevices for Sane {
-    fn get_all_devices(&self) -> Result<Vec<Device>, sane_scan::Error> {
+    fn get_all_devices(&self, local_only: bool) -> Result<Vec<Device>, sane_scan::Error> {
+        let local_only = match local_only {
+            true => 1,
+            false => 0,
+        };
+
         let mut device_list: *mut *const sys::Device = std::ptr::null_mut();
         let status: sys::Status =
-            unsafe { sys::sane_get_devices(&mut device_list as *mut *mut *const sys::Device, 0) };
+            unsafe { sys::sane_get_devices(&mut device_list as *mut *mut *const sys::Device, local_only) };
         if status != sys::Status::Good {
             return Err(sane_scan::Error(status));
         }
